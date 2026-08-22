@@ -112,6 +112,31 @@ def test_create_bookmark_success_returns_202_with_pending_status():
     )
 
 
+# ---- input validation ----
+
+
+def test_create_bookmark_blank_url_returns_422():
+    with mock_authenticated_user(), patch("app.main.create_bookmark") as mock_create:
+        response = client.post(
+            "/bookmarks",
+            json={"url": "   ", "title": "Example Article"},
+            headers=auth_headers(),
+        )
+    assert response.status_code == 422
+    mock_create.assert_not_called()
+
+
+def test_create_bookmark_blank_title_returns_422():
+    with mock_authenticated_user(), patch("app.main.create_bookmark") as mock_create:
+        response = client.post(
+            "/bookmarks",
+            json={"url": "https://example.com/article", "title": ""},
+            headers=auth_headers(),
+        )
+    assert response.status_code == 422
+    mock_create.assert_not_called()
+
+
 # ---- duplicate handling ----
 
 

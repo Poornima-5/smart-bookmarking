@@ -6,7 +6,7 @@ import uuid
 
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from app.ai_service import generate_metadata
 from app.auth import get_current_user
@@ -62,6 +62,14 @@ class BookmarkCreate(BaseModel):
     url: str
     title: str
     description: str = ""
+
+    @field_validator("url", "title")
+    @classmethod
+    def _not_blank(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("must not be blank")
+        return value
 
 
 class BookmarkRecord(BaseModel):

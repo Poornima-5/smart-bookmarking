@@ -20,3 +20,11 @@ dev = [
     "httpx>=0.28.1",
     "pytest>=8.0.0",
 ]
+
+[tool.pytest.ini_options]
+# Restrict discovery to the real test suite. The repo also has root-level
+# test_*.py scripts left over from early prototyping (test_ai.py,
+# test_embedding.py, test_qdrant.py, test_search.py) that run live
+# Groq/Qdrant/SentenceTransformer calls as a side effect of import -- a bare
+# `pytest` must not collect those.
+testpaths = ["test_auth.py", "test_bookmarks.py", "test_bookmarks_service.py"]
