@@ -1,29 +1,50 @@
 const bannerEl = document.getElementById("banner");
 const userBarEl = document.getElementById("user-bar");
 const userEmailEl = document.getElementById("user-email");
-const authSection = document.getElementById("auth-section");
-const appSection = document.getElementById("app-section");
-const authForm = document.getElementById("auth-form");
-const loginBtn = document.getElementById("login-btn");
-const signupBtn = document.getElementById("signup-btn");
 const logoutBtn = document.getElementById("logout-btn");
+
+const authSection = document.getElementById("auth-section");
+const authHeading = document.getElementById("auth-heading");
+const authSubtext = document.getElementById("auth-subtext");
+const authForm = document.getElementById("auth-form");
+const authEmailInput = document.getElementById("auth-email");
+const authPasswordInput = document.getElementById("auth-password");
+const authSubmitBtn = document.getElementById("auth-submit-btn");
+const authToggleText = document.getElementById("auth-toggle-text");
+const authToggleBtn = document.getElementById("auth-toggle-btn");
+
+const appSection = document.getElementById("app-section");
 const bookmarkForm = document.getElementById("bookmark-form");
 const saveBtn = document.getElementById("save-btn");
 const bookmarksListEl = document.getElementById("bookmarks-list");
-const searchForm = document.getElementById("search-form");
-const searchResultsEl = document.getElementById("search-results");
+const bookmarkCountEl = document.getElementById("bookmark-count");
 
 let supabaseClient = null;
+let authMode = "login"; // "login" | "signup"
+let bannerTimeoutId = null;
+
+// ---------- Banner ----------
 
 function showBanner(message, kind = "info") {
   bannerEl.textContent = message;
   bannerEl.className = `banner ${kind}`;
   bannerEl.classList.remove("hidden");
+
+  if (bannerTimeoutId) clearTimeout(bannerTimeoutId);
+  if (kind === "success" || kind === "info") {
+    bannerTimeoutId = setTimeout(clearBanner, 4000);
+  }
 }
 
 function clearBanner() {
   bannerEl.classList.add("hidden");
+  if (bannerTimeoutId) {
+    clearTimeout(bannerTimeoutId);
+    bannerTimeoutId = null;
+  }
 }
+
+// ---------- API helper ----------
 
 async function getAccessToken() {
   const { data } = await supabaseClient.auth.getSession();
@@ -55,6 +76,8 @@ async function apiFetch(path, options = {}) {
   return response.json();
 }
 
+// ---------- View toggling ----------
+
 function setLoggedInView(user) {
   userEmailEl.textContent = user.email;
   userBarEl.classList.remove("hidden");
@@ -67,32 +90,102 @@ function setLoggedOutView() {
   authSection.classList.remove("hidden");
   appSection.classList.add("hidden");
   bookmarksListEl.innerHTML = "";
+  bookmarkCountEl.classList.add("hidden");
+}
+
+// ---------- Auth mode (login / signup) ----------
+
+function setAuthMode(mode) {
+  authMode = mode;
+  clearBanner();
+
+  if (mode === "signup") {
+    authHeading.textContent = "Create your account";
+    authSubtext.textContent = "Start saving the resources you don't want to lose.";
+    authSubmitBtn.textContent = "Sign up";
+    authToggleText.textContent = "Already have an account?";
+    authToggleBtn.textContent = "Log in";
+  } else {
+    authHeading.textContent = "Welcome back";
+    authSubtext.textContent = "Log in to access your saved technical resources.";
+    authSubmitBtn.textContent = "Log in";
+    authToggleText.textContent = "Don't have an account?";
+    authToggleBtn.textContent = "Sign up";
+  }
+}
+
+authToggleBtn.addEventListener("click", () => {
+  setAuthMode(authMode === "login" ? "signup" : "login");
+});
+
+// ---------- Bookmarks rendering ----------
+
+function statusPillClass(status) {
+  switch (status) {
+    case "completed":
+      return "status-completed";
+    case "failed":
+      return "status-failed";
+    case "processing":
+      return "status-processing";
+    default:
+      return "status-pending";
+  }
+}
+
+function renderEmptyState() {
+  bookmarksListEl.innerHTML = `
+    <div class="empty-state">
+      <span class="empty-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1z" />
+        </svg>
+      </span>
+      <h3>No bookmarks yet</h3>
+      <p>Save your first resource using the form to get started.</p>
+    </div>
+  `;
+}
+
+function renderLoadingState() {
+  bookmarksListEl.innerHTML = `
+    <div class="state-message">
+      <p><span class="spinner" aria-hidden="true"></span>Loading your bookmarks...</p>
+    </div>
+  `;
 }
 
 function renderBookmarks(bookmarks) {
   if (!bookmarks.length) {
-    bookmarksListEl.innerHTML = '<p class="muted">No bookmarks yet. Add one above.</p>';
+    renderEmptyState();
+    bookmarkCountEl.classList.add("hidden");
     return;
   }
 
+  bookmarkCountEl.textContent = `${bookmarks.length} saved`;
+  bookmarkCountEl.classList.remove("hidden");
+
   bookmarksListEl.innerHTML = "";
   for (const bm of bookmarks) {
-    const card = document.createElement("div");
+    const card = document.createElement("article");
     card.className = "bookmark-card";
     card.innerHTML = `
-      <h3>${escapeHtml(bm.title)}</h3>
-      <a href="${escapeHtml(bm.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(bm.url)}</a>
-      ${bm.description ? `<p>${escapeHtml(bm.description)}</p>` : ""}
-      <div class="bookmark-meta">
-        <span class="status-pill">${escapeHtml(bm.status)}</span>
-        <button class="delete-btn" data-id="${bm.id}">Delete</button>
+      <h3 class="bookmark-title">${escapeHtml(bm.title)}</h3>
+      <a class="bookmark-url" href="${escapeHtml(bm.url)}" target="_blank"
+         rel="noopener noreferrer" title="${escapeHtml(bm.url)}">${escapeHtml(bm.url)}</a>
+      ${bm.description ? `<p class="bookmark-desc">${escapeHtml(bm.description)}</p>` : ""}
+      <div class="bookmark-card-footer">
+        <span class="status-pill ${statusPillClass(bm.status)}">${escapeHtml(bm.status)}</span>
+        <button type="button" class="btn btn-danger-outline btn-sm delete-btn" data-id="${bm.id}">
+          Delete
+        </button>
       </div>
     `;
     bookmarksListEl.appendChild(card);
   }
 
   bookmarksListEl.querySelectorAll(".delete-btn").forEach((btn) => {
-    btn.addEventListener("click", () => deleteBookmark(btn.dataset.id));
+    btn.addEventListener("click", () => deleteBookmark(btn.dataset.id, btn));
   });
 }
 
@@ -103,31 +196,43 @@ function escapeHtml(str) {
 }
 
 async function loadBookmarks() {
-  bookmarksListEl.innerHTML = '<p class="muted">Loading...</p>';
+  renderLoadingState();
   try {
     const bookmarks = await apiFetch("/bookmarks");
     renderBookmarks(bookmarks);
   } catch (err) {
-    bookmarksListEl.innerHTML = "";
+    bookmarksListEl.innerHTML = `
+      <div class="state-message">
+        <p>Couldn't load your bookmarks. Please try refreshing the page.</p>
+      </div>
+    `;
     showBanner(`Failed to load bookmarks: ${err.message}`, "error");
   }
 }
 
-async function deleteBookmark(id) {
+async function deleteBookmark(id, buttonEl) {
+  const originalText = buttonEl.textContent;
+  buttonEl.disabled = true;
+  buttonEl.textContent = "Deleting...";
+
   try {
     await apiFetch(`/bookmarks/${id}`, { method: "DELETE" });
     showBanner("Bookmark deleted.", "success");
     await loadBookmarks();
   } catch (err) {
     showBanner(`Failed to delete bookmark: ${err.message}`, "error");
+    buttonEl.disabled = false;
+    buttonEl.textContent = originalText;
   }
 }
+
+// ---------- Add bookmark ----------
 
 bookmarkForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   clearBanner();
   saveBtn.disabled = true;
-  saveBtn.textContent = "Saving...";
+  saveBtn.innerHTML = '<span class="spinner" aria-hidden="true"></span>Saving...';
 
   const url = document.getElementById("bookmark-url").value.trim();
   const title = document.getElementById("bookmark-title").value.trim();
@@ -153,57 +258,41 @@ bookmarkForm.addEventListener("submit", async (e) => {
   }
 });
 
-searchForm.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const query = document.getElementById("search-query").value.trim();
-  if (!query) return;
-
-  searchResultsEl.innerHTML = '<p class="muted">Searching...</p>';
-  try {
-    const response = await fetch("/search", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ query }),
-    });
-    const data = await response.json();
-    const points = data.points || [];
-    if (!points.length) {
-      searchResultsEl.innerHTML = '<p class="muted">No results.</p>';
-      return;
-    }
-    searchResultsEl.innerHTML = "";
-    for (const point of points) {
-      const payload = point.payload || {};
-      const card = document.createElement("div");
-      card.className = "bookmark-card";
-      card.innerHTML = `
-        <h3>${escapeHtml(payload.title || "Untitled")}</h3>
-        <a href="${escapeHtml(payload.url || "#")}" target="_blank" rel="noopener noreferrer">${escapeHtml(payload.url || "")}</a>
-        ${payload.summary ? `<p>${escapeHtml(payload.summary)}</p>` : ""}
-      `;
-      searchResultsEl.appendChild(card);
-    }
-  } catch (err) {
-    searchResultsEl.innerHTML = "";
-    showBanner(`Search failed: ${err.message}`, "error");
-  }
-});
+// ---------- Auth ----------
 
 authForm.addEventListener("submit", async (e) => {
   e.preventDefault();
-  await handleLogin();
+  if (authMode === "signup") {
+    await handleSignup();
+  } else {
+    await handleLogin();
+  }
 });
 
-loginBtn.addEventListener("click", async (e) => {
-  e.preventDefault();
-  await handleLogin();
-});
-
-signupBtn.addEventListener("click", async () => {
+async function handleLogin() {
   clearBanner();
-  const email = document.getElementById("auth-email").value.trim();
-  const password = document.getElementById("auth-password").value;
-  signupBtn.disabled = true;
+  const email = authEmailInput.value.trim();
+  const password = authPasswordInput.value;
+  authSubmitBtn.disabled = true;
+  authSubmitBtn.innerHTML = '<span class="spinner" aria-hidden="true"></span>Logging in...';
+
+  try {
+    const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+  } catch (err) {
+    showBanner(`Log in failed: ${err.message}`, "error");
+  } finally {
+    authSubmitBtn.disabled = false;
+    authSubmitBtn.textContent = "Log in";
+  }
+}
+
+async function handleSignup() {
+  clearBanner();
+  const email = authEmailInput.value.trim();
+  const password = authPasswordInput.value;
+  authSubmitBtn.disabled = true;
+  authSubmitBtn.innerHTML = '<span class="spinner" aria-hidden="true"></span>Signing up...';
 
   try {
     const { data, error } = await supabaseClient.auth.signUp({ email, password });
@@ -213,33 +302,26 @@ signupBtn.addEventListener("click", async () => {
       showBanner("Account created and logged in.", "success");
     } else {
       showBanner("Account created. Check your email to confirm, then log in.", "info");
+      setAuthMode("login");
     }
   } catch (err) {
     showBanner(`Sign up failed: ${err.message}`, "error");
   } finally {
-    signupBtn.disabled = false;
-  }
-});
-
-async function handleLogin() {
-  clearBanner();
-  const email = document.getElementById("auth-email").value.trim();
-  const password = document.getElementById("auth-password").value;
-  loginBtn.disabled = true;
-
-  try {
-    const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
-    if (error) throw error;
-  } catch (err) {
-    showBanner(`Log in failed: ${err.message}`, "error");
-  } finally {
-    loginBtn.disabled = false;
+    authSubmitBtn.disabled = false;
+    authSubmitBtn.textContent = authMode === "signup" ? "Sign up" : "Log in";
   }
 }
 
 logoutBtn.addEventListener("click", async () => {
-  await supabaseClient.auth.signOut();
+  logoutBtn.disabled = true;
+  try {
+    await supabaseClient.auth.signOut();
+  } finally {
+    logoutBtn.disabled = false;
+  }
 });
+
+// ---------- Bootstrap ----------
 
 async function init() {
   try {
