@@ -17,13 +17,21 @@ from app.bookmarks_service import (
     get_bookmark,
     list_bookmarks,
 )
-from app.embedding import get_embedding
-from app.qdrant_service import client
-from qdrant_client.models import PointStruct
 
 app = FastAPI()
 
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
+
+
+def _embeddings_enabled() -> bool:
+    """Gates the legacy embedding/Qdrant endpoints.
+
+    SentenceTransformer pulls in torch/transformers, which alone exceeds
+    Render's 512MB free-tier limit. Off by default so the process never
+    imports that stack; set EMBEDDINGS_ENABLED=true locally to use
+    /bookmark and /search.
+    """
+    return os.getenv("EMBEDDINGS_ENABLED", "false").lower() == "true"
 
 
 @app.get("/config")
@@ -127,6 +135,18 @@ def delete_bookmark_endpoint(
 
 @app.post("/bookmark")
 def add_bookmark(bookmark: Bookmark):
+    if not _embeddings_enabled():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=(
+                "Legacy embedding-based bookmark creation is disabled in this "
+                "deployment. Use POST /bookmarks instead."
+            ),
+        )
+
+    from app.embedding import get_embedding
+    from app.qdrant_service import client
+    from qdrant_client.models import PointStruct
 
     # 1. Generate AI metadata
     metadata = generate_metadata(
@@ -176,6 +196,14 @@ def add_bookmark(bookmark: Bookmark):
 
 @app.post("/search")
 def search(query: SearchQuery):
+    if not _embeddings_enabled():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Semantic search is temporarily unavailable in this deployment.",
+        )
+
+    from app.embedding import get_embedding
+    from app.qdrant_service import client
 
     query_vector = get_embedding(query.query)
 
