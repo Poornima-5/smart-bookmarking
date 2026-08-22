@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Smart Bookmarking</title>
+  <link rel="stylesheet" href="/styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+</head>
+<body>
+  <header>
+    <h1>Smart Bookmarking</h1>
+    <div id="user-bar" class="hidden">
+      <span id="user-email"></span>
+      <button id="logout-btn">Log out</button>
+    </div>
+  </header>
+
+  <main>
+    <div id="banner" class="banner hidden"></div>
+
+    <section id="auth-section">
+      <h2>Log in / Sign up</h2>
+      <form id="auth-form">
+        <input type="email" id="auth-email" placeholder="Email" required autocomplete="email" />
+        <input type="password" id="auth-password" placeholder="Password" required autocomplete="current-password" minlength="6" />
+        <div class="button-row">
+          <button type="submit" id="login-btn">Log in</button>
+          <button type="button" id="signup-btn">Sign up</button>
+        </div>
+      </form>
+    </section>
+
+    <section id="app-section" class="hidden">
+      <h2>Add a bookmark</h2>
+      <form id="bookmark-form">
+        <input type="url" id="bookmark-url" placeholder="https://example.com/article" required />
+        <input type="text" id="bookmark-title" placeholder="Title" required />
+        <textarea id="bookmark-description" placeholder="Description (optional)"></textarea>
+        <button type="submit" id="save-btn">Save bookmark</button>
+      </form>
+
+      <h2>Your bookmarks</h2>
+      <div id="bookmarks-list">
+        <p class="muted">Loading...</p>
+      </div>
+
+      <details id="search-section">
+        <summary>Semantic search (demo index)</summary>
+        <p class="muted">
+          Searches a separate legacy demo index and is not yet connected to your saved
+          bookmarks above.
+        </p>
+        <form id="search-form">
+          <input type="text" id="search-query" placeholder="Describe what you remember..." />
+          <button type="submit">Search</button>
+        </form>
+        <div id="search-results"></div>
+      </details>
+    </section>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>

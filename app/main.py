@@ -1,8 +1,11 @@
 from datetime import datetime
+from pathlib import Path
 from uuid import UUID
+import os
 import uuid
 
 from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from app.ai_service import generate_metadata
@@ -19,6 +22,17 @@ from app.qdrant_service import client
 from qdrant_client.models import PointStruct
 
 app = FastAPI()
+
+STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
+
+
+@app.get("/config")
+def get_public_config():
+    """Public, browser-safe config. Never expose SUPABASE_SECRET_KEY here."""
+    return {
+        "supabase_url": os.getenv("SUPABASE_URL"),
+        "supabase_publishable_key": os.getenv("SUPABASE_PUBLISHABLE_KEY"),
+    }
 
 
 @app.get("/me")
@@ -172,3 +186,7 @@ def search(query: SearchQuery):
     )
 
     return results
+
+
+# Mounted last so it never shadows the API routes above; serves index.html at "/".
+app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="frontend")
