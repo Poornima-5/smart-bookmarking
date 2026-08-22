@@ -26,33 +26,52 @@ Description:
 URL:
 {url}
 
-Return ONLY valid JSON with this structure:
-
-{{
-    "summary": "A concise 2-3 sentence summary",
-    "tags": ["tag1", "tag2", "tag3", "tag4"]
-}}
+Generate:
+- A concise 2-3 sentence summary.
+- 3-5 useful tags.
 
 Rules:
-- Generate 3-5 useful tags.
 - Tags should describe the main topics, not generic words like "article".
 - Do not invent information that isn't supported by the metadata.
 """
 
     response = client.chat.completions.create(
-        model=MODEL,
-        messages=[
-            {
-                "role": "system",
-                "content": "You generate structured metadata for saved bookmarks."
-            },
-            {
-                "role": "user",
-                "content": prompt
+    model=MODEL,
+    messages=[
+        {
+            "role": "system",
+            "content": "You generate structured metadata for saved bookmarks."
+        },
+        {
+            "role": "user",
+            "content": prompt
+        }
+    ],
+    temperature=0.2,
+    response_format={
+        "type": "json_schema",
+        "json_schema": {
+            "name": "bookmark_metadata",
+            "strict": True,
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "summary": {
+                        "type": "string"
+                    },
+                    "tags": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "required": ["summary", "tags"],
+                "additionalProperties": False
             }
-        ],
-        temperature=0.2,
-    )
+        }
+    },
+)
 
     content = response.choices[0].message.content
 
