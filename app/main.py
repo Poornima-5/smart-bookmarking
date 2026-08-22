@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
+import uuid
 
 from app.ai_service import generate_metadata
 from app.embedding import get_embedding
@@ -44,7 +45,7 @@ def add_bookmark(bookmark: Bookmark):
         collection_name="bookmarks",
         points=[
             PointStruct(
-                id=hash(bookmark.url) % 1000000,
+                id=str(uuid.uuid5(uuid.NAMESPACE_URL, bookmark.url)),
                 vector=vector,
                 payload={
                     "url": bookmark.url,
