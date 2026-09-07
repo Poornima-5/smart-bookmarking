@@ -3,12 +3,27 @@ name = "smart-bookmarking"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.12,<3.13"
 dependencies = [
     "fastapi>=0.138.0",
     "google-generativeai>=0.8.6",
+    "groq>=1.6.0",
+    "httpx>=0.28.1",
     "python-dotenv>=1.2.2",
     "qdrant-client>=1.18.0",
-    "sentence-transformers>=5.6.0",
+    "supabase>=2.31.0",
     "uvicorn>=0.49.0",
 ]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+]
+
+[tool.pytest.ini_options]
+# Restrict discovery to the real test suite. The repo also has root-level
+# test_*.py scripts left over from early prototyping (test_ai.py,
+# test_embedding.py, test_qdrant.py, test_search.py) that make live network
+# calls (Groq, Qdrant, HF API) as a side effect of import -- a bare
+# `pytest` must not collect those.
+testpaths = ["test_auth.py", "test_bookmarks.py", "test_bookmarks_service.py", "test_bookmark_processing.py"]

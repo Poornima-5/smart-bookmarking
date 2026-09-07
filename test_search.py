@@ -1,5 +1,7 @@
 from app.embedding import get_embedding
-from app.qdrant_service import client
+from app.qdrant_service import get_qdrant_client
+
+client = get_qdrant_client()
 
 query = "attention in neural networks"
 

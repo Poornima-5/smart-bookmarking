@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Smart Bookmarks</title>
+  <meta name="description" content="A focused home for the technical articles, docs, and tools you want to find again." />
+  <link rel="stylesheet" href="/styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1z" />
+        </svg>
+      </span>
+      <span class="brand-name">Smart Bookmarks</span>
+    </div>
+    <div id="user-bar" class="user-bar hidden">
+      <span id="user-email" class="user-email"></span>
+      <button id="logout-btn" type="button" class="btn btn-ghost btn-sm">Log out</button>
+    </div>
+  </header>
+
+  <main class="page">
+    <div id="banner" class="banner hidden" role="status" aria-live="polite"></div>
+
+    <section id="auth-section" class="auth-card">
+      <div class="auth-card-header">
+        <h1 id="auth-heading">Welcome back</h1>
+        <p id="auth-subtext" class="auth-subtext">
+          Log in to access your saved technical resources.
+        </p>
+      </div>
+
+      <form id="auth-form">
+        <div class="field">
+          <label for="auth-email">Email</label>
+          <input
+            type="email"
+            id="auth-email"
+            placeholder="you@company.com"
+            required
+            autocomplete="email"
+          />
+        </div>
+        <div class="field">
+          <label for="auth-password">Password</label>
+          <input
+            type="password"
+            id="auth-password"
+            placeholder="At least 6 characters"
+            required
+            autocomplete="current-password"
+            minlength="6"
+          />
+        </div>
+        <button type="submit" id="auth-submit-btn" class="btn btn-primary btn-block">
+          Log in
+        </button>
+      </form>
+
+      <p class="auth-toggle">
+        <span id="auth-toggle-text">Don't have an account?</span>
+        <button type="button" id="auth-toggle-btn" class="link-btn">Sign up</button>
+      </p>
+    </section>
+
+    <section id="app-section" class="app hidden">
+      <section class="panel add-bookmark-panel">
+        <h2>Add a bookmark</h2>
+        <p class="panel-subtext">Save a link and keep it organized in one place.</p>
+
+        <form id="bookmark-form">
+          <div class="field">
+            <label for="bookmark-url">URL</label>
+            <input
+              type="url"
+              id="bookmark-url"
+              placeholder="https://example.com/article"
+              required
+            />
+          </div>
+          <div class="field">
+            <label for="bookmark-title">Title</label>
+            <input
+              type="text"
+              id="bookmark-title"
+              placeholder="A short, memorable title"
+              required
+            />
+          </div>
+          <div class="field">
+            <label for="bookmark-description">
+              Description <span class="optional">(optional)</span>
+            </label>
+            <textarea
+              id="bookmark-description"
+              placeholder="Add any notes or context"
+            ></textarea>
+          </div>
+          <button type="submit" id="save-btn" class="btn btn-primary btn-block">
+            Save bookmark
+          </button>
+        </form>
+      </section>
+
+      <section class="panel bookmarks-panel">
+        <section class="search-section">
+          <h2>Search bookmarks</h2>
+          <p class="panel-subtext">Find saved links using semantic meaning rather than exact keywords.</p>
+
+          <form id="search-form">
+            <div class="search-bar">
+              <input
+                type="text"
+                id="search-input"
+                placeholder="e.g. articles on fine-tuning LLMs"
+                autocomplete="off"
+              />
+              <div class="search-actions">
+                <button type="submit" id="search-btn" class="btn btn-primary btn-sm">
+                  Search
+                </button>
+                <button type="button" id="clear-search-btn" class="btn btn-ghost btn-sm">
+                  Clear
+                </button>
+              </div>
+            </div>
+          </form>
+
+          <div id="search-results-section" class="search-results-section hidden">
+            <div class="panel-heading-row">
+              <h3>Search results</h3>
+              <span id="search-count" class="count-pill hidden"></span>
+            </div>
+            <div id="search-results-list" aria-live="polite"></div>
+          </div>
+        </section>
+
+        <hr class="section-divider" />
+
+        <div class="panel-heading-row">
+          <h2>Your bookmarks</h2>
+          <span id="bookmark-count" class="count-pill hidden"></span>
+        </div>
+        <div id="bookmarks-list" aria-live="polite"></div>
+      </section>
+    </section>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>

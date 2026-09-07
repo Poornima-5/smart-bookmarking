@@ -1,6 +1,8 @@
 from app.embedding import get_embedding
-from app.qdrant_service import client
+from app.qdrant_service import get_qdrant_client
 from qdrant_client.models import PointStruct
+
+client = get_qdrant_client()
 
 text = "Transformers use self attention mechanisms"
 
