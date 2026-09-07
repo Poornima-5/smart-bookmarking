@@ -1,15 +1,11 @@
-"""HTTP client for the standalone embedding service.
+"""Embedding client using the Hugging Face Inference Providers API.
 
-The main application no longer runs SentenceTransformer in-process.
-Instead, get_embedding() calls the separate embedding service over HTTP.
+get_embedding() calls the Hugging Face feature-extraction pipeline for
+sentence-transformers/all-MiniLM-L6-v2 and returns a 384-dimensional vector.
 
 Required environment variable:
-    EMBEDDING_SERVICE_URL — base URL of the embedding service,
-                            e.g. http://localhost:8001 (local dev)
-                            or   https://your-embedding-service.onrender.com (prod)
-
-The variable has a local default so local development works out of the box,
-but it should be set explicitly in any deployed environment.
+    HF_TOKEN — Hugging Face API token used for authentication.
+               Create one at https://huggingface.co/settings/tokens
 """
 
 import os
@@ -19,52 +15,74 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-_EMBEDDING_SERVICE_URL = os.getenv("EMBEDDING_SERVICE_URL", "http://localhost:8001")
-
-# Warn loudly if nothing was configured — helps catch misconfigured deployments
-# early rather than getting confusing connection-refused errors at request time.
-if not _EMBEDDING_SERVICE_URL:
-    raise RuntimeError(
-        "EMBEDDING_SERVICE_URL is not set. "
-        "Start the embedding service (see embedding_service/) and set "
-        "EMBEDDING_SERVICE_URL to its base URL before starting the main app."
-    )
-
-_EMBED_ENDPOINT = f"{_EMBEDDING_SERVICE_URL}/embed"
-_TIMEOUT = 30.0  # seconds — model inference is fast; 30 s is a generous ceiling
+_HF_API_URL = (
+    "https://router.huggingface.co/hf-inference/models"
+    "/sentence-transformers/all-MiniLM-L6-v2/pipeline/feature-extraction"
+)
+_TIMEOUT = 30.0  # seconds — inference is fast; 30 s is a generous ceiling
 
 
 def get_embedding(text: str) -> list[float]:
-    """Return a 384-dimensional embedding vector by calling the embedding service.
+    """Return a 384-dimensional embedding vector via the Hugging Face API.
+
+    Args:
+        text: The input text to embed.
+
+    Returns:
+        A list of 384 floats representing the semantic embedding.
 
     Raises:
-        httpx.ConnectError / httpx.TimeoutException — if the embedding service
-            is unreachable or too slow.  These propagate so callers can wrap them
-            in an appropriate HTTP 502/503 response.
-        RuntimeError — if the response is not valid JSON or lacks the
-            'embedding' key (indicates a service-side bug or version mismatch).
-        httpx.HTTPStatusError — if the embedding service returns a 4xx/5xx.
+        RuntimeError: If HF_TOKEN is missing, the request fails, the API
+            returns a non-2xx status, or the response is not a valid embedding.
     """
-    try:
-        response = httpx.post(
-            _EMBED_ENDPOINT,
-            json={"text": text},
-            timeout=_TIMEOUT,
+    token = os.getenv("HF_TOKEN")
+    if not token:
+        raise RuntimeError(
+            "HF_TOKEN is not set. "
+            "Set it to your Hugging Face API token before starting the app."
         )
-        response.raise_for_status()
-    except httpx.ConnectError as exc:
-        raise httpx.ConnectError(
-            f"Cannot reach the embedding service at {_EMBEDDING_SERVICE_URL}. "
-            "Is it running? Check EMBEDDING_SERVICE_URL."
-        ) from exc
-    except httpx.TimeoutException as exc:
-        raise httpx.TimeoutException(
-            f"Embedding service at {_EMBEDDING_SERVICE_URL} timed out after {_TIMEOUT}s."
-        ) from exc
 
     try:
-        return response.json()["embedding"]
-    except (KeyError, ValueError) as exc:
+        response = httpx.post(
+            _HF_API_URL,
+            headers={"Authorization": f"Bearer {token}"},
+            json={"inputs": text},
+            timeout=_TIMEOUT,
+        )
+    except httpx.TimeoutException as exc:
         raise RuntimeError(
-            f"Unexpected response from embedding service: {response.text!r}"
+            f"Request to Hugging Face API timed out after {_TIMEOUT}s."
         ) from exc
+    except httpx.RequestError as exc:
+        raise RuntimeError(
+            f"Network error while calling Hugging Face API: {exc}"
+        ) from exc
+
+    if response.status_code != 200:
+        raise RuntimeError(
+            f"Hugging Face API returned HTTP {response.status_code}: {response.text!r}"
+        )
+
+    try:
+        data = response.json()
+        # The feature-extraction pipeline returns a list[list[float]] when the
+        # input is a single string — take the first (and only) element.
+        if isinstance(data, list) and len(data) > 0 and isinstance(data[0], list):
+            embedding = data[0]
+        elif isinstance(data, list) and len(data) > 0 and isinstance(data[0], float):
+            embedding = data
+        else:
+            raise ValueError(f"Unexpected shape: {type(data)}")
+    except (ValueError, TypeError) as exc:
+        raise RuntimeError(
+            f"Unexpected response from Hugging Face API: {response.text!r}"
+        ) from exc
+
+    if not isinstance(embedding, list) or not all(
+        isinstance(v, (int, float)) for v in embedding
+    ):
+        raise RuntimeError(
+            f"Embedding is not a list of numbers: {embedding!r}"
+        )
+
+    return [float(v) for v in embedding]
