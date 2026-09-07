@@ -11,6 +11,15 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      SUPABASE_URL: https://placeholder.supabase.co
+      SUPABASE_PUBLISHABLE_KEY: placeholder-publishable-key
+      SUPABASE_SECRET_KEY: placeholder-secret-key
+      GROQ_API_KEY: placeholder-groq-api-key
+      GROQ_MODEL: openai/gpt-oss-20b
+      QDRANT_URL: https://placeholder.qdrant.io:6333
+      QDRANT_API_KEY: placeholder-qdrant-api-key
+      HF_TOKEN: placeholder-hf-token
 
     steps:
       - name: Checkout repository
