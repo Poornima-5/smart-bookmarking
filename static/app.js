@@ -19,6 +19,14 @@ const saveBtn = document.getElementById("save-btn");
 const bookmarksListEl = document.getElementById("bookmarks-list");
 const bookmarkCountEl = document.getElementById("bookmark-count");
 
+const searchForm = document.getElementById("search-form");
+const searchInput = document.getElementById("search-input");
+const searchBtn = document.getElementById("search-btn");
+const clearSearchBtn = document.getElementById("clear-search-btn");
+const searchResultsSection = document.getElementById("search-results-section");
+const searchResultsListEl = document.getElementById("search-results-list");
+const searchCountEl = document.getElementById("search-count");
+
 let supabaseClient = null;
 let authMode = "login"; // "login" | "signup"
 let bannerTimeoutId = null;
@@ -64,7 +72,11 @@ async function apiFetch(path, options = {}) {
     let detail = response.statusText;
     try {
       const body = await response.json();
-      detail = body.detail || detail;
+      if (Array.isArray(body.detail)) {
+        detail = body.detail.map((d) => d.msg || JSON.stringify(d)).join("; ");
+      } else if (body.detail) {
+        detail = body.detail;
+      }
     } catch (_) {
       /* no JSON body */
     }
@@ -91,6 +103,7 @@ function setLoggedOutView() {
   appSection.classList.add("hidden");
   bookmarksListEl.innerHTML = "";
   bookmarkCountEl.classList.add("hidden");
+  clearSearchUI();
 }
 
 // ---------- Auth mode (login / signup) ----------
@@ -256,6 +269,125 @@ bookmarkForm.addEventListener("submit", async (e) => {
     saveBtn.disabled = false;
     saveBtn.textContent = "Save bookmark";
   }
+});
+
+// ---------- Semantic search ----------
+
+function clearSearchUI() {
+  searchInput.value = "";
+  searchResultsListEl.innerHTML = "";
+  searchResultsSection.classList.add("hidden");
+  searchCountEl.classList.add("hidden");
+  searchCountEl.textContent = "";
+}
+
+function renderSearchResults(results, query) {
+  if (!results || !results.length) {
+    searchCountEl.classList.add("hidden");
+    searchResultsListEl.innerHTML = `
+      <div class="empty-state">
+        <span class="empty-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+        </span>
+        <h3>No matching bookmarks</h3>
+        <p>No bookmarks closely matched &ldquo;${escapeHtml(query)}&rdquo;.</p>
+      </div>
+    `;
+    return;
+  }
+
+  searchCountEl.textContent = `${results.length} result${results.length === 1 ? "" : "s"}`;
+  searchCountEl.classList.remove("hidden");
+
+  searchResultsListEl.innerHTML = "";
+  for (const item of results) {
+    const card = document.createElement("article");
+    card.className = "bookmark-card search-result-card";
+
+    const scorePct = Math.round(Number(item.score) * 100);
+    const scoreFormatted = Number(item.score).toFixed(3);
+
+    const tagsHtml =
+      item.tags && item.tags.length
+        ? `<div class="tags-row">${item.tags
+            .map((t) => `<span class="tag-pill">${escapeHtml(t)}</span>`)
+            .join("")}</div>`
+        : "";
+
+    card.innerHTML = `
+      <div class="card-header-row">
+        <h3 class="bookmark-title">${escapeHtml(item.title)}</h3>
+        <span class="score-pill" title="Similarity score: ${scoreFormatted}">
+          ${scorePct}% match
+        </span>
+      </div>
+      <a class="bookmark-url" href="${escapeHtml(item.url)}" target="_blank"
+         rel="noopener noreferrer" title="${escapeHtml(item.url)}">${escapeHtml(item.url)}</a>
+      ${item.summary ? `<p class="bookmark-desc">${escapeHtml(item.summary)}</p>` : ""}
+      ${tagsHtml}
+    `;
+    searchResultsListEl.appendChild(card);
+  }
+}
+
+searchForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  clearBanner();
+
+  const query = searchInput.value.trim();
+  if (!query) {
+    showBanner("Please enter a search query.", "info");
+    return;
+  }
+
+  searchBtn.disabled = true;
+  searchBtn.innerHTML = '<span class="spinner" aria-hidden="true"></span>Searching...';
+
+  searchResultsSection.classList.remove("hidden");
+  searchResultsListEl.innerHTML = `
+    <div class="state-message">
+      <p><span class="spinner" aria-hidden="true"></span>Searching bookmarks...</p>
+    </div>
+  `;
+
+  try {
+    const results = await apiFetch("/bookmarks/search", {
+      method: "POST",
+      body: JSON.stringify({ query }),
+    });
+    renderSearchResults(results, query);
+  } catch (err) {
+    if (err.status === 401) {
+      showBanner("Your session has expired. Please log in again.", "error");
+      setLoggedOutView();
+    } else if (err.status === 422) {
+      showBanner(`Search error: ${err.message}`, "error");
+      searchResultsListEl.innerHTML = `
+        <div class="state-message">
+          <p>Invalid search query. Please refine your query.</p>
+        </div>
+      `;
+    } else {
+      showBanner(`Search failed: ${err.message}`, "error");
+      searchResultsListEl.innerHTML = `
+        <div class="state-message">
+          <p>Failed to load search results. Please try again.</p>
+        </div>
+      `;
+    }
+  } finally {
+    searchBtn.disabled = false;
+    searchBtn.textContent = "Search";
+  }
+});
+
+clearSearchBtn.addEventListener("click", () => {
+  clearSearchUI();
+  clearBanner();
+  searchInput.focus();
 });
 
 // ---------- Auth ----------

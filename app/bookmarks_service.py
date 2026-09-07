@@ -31,6 +31,39 @@ def create_bookmark(user_id: str, url: str, title: str, description: str) -> dic
     return response.data[0]
 
 
+def update_bookmark_metadata(
+    user_id: str,
+    bookmark_id: str,
+    status: str,
+    summary: str | None = None,
+    tags: list[str] | None = None,
+    error_message: str | None = None,
+) -> dict | None:
+    """Updates status, summary, tags, and/or error_message scoped strictly to user_id."""
+    payload: dict = {"status": status}
+    if summary is not None:
+        payload["summary"] = summary
+    if tags is not None:
+        payload["tags"] = tags
+    if error_message is not None:
+        payload["error_message"] = error_message
+
+    try:
+        response = (
+            admin_client.table("bookmarks")
+            .update(payload)
+            .eq("user_id", user_id)
+            .eq("id", bookmark_id)
+            .execute()
+        )
+    except APIError as e:
+        if e.code == INVALID_TEXT_REPRESENTATION:
+            return None
+        raise
+
+    return response.data[0] if response.data else None
+
+
 def list_bookmarks(user_id: str) -> list[dict]:
     response = (
         admin_client.table("bookmarks")
@@ -74,4 +107,14 @@ def delete_bookmark(user_id: str, bookmark_id: str) -> bool:
             return False
         raise
 
-    return bool(response.data)
+    deleted = bool(response.data)
+    if deleted:
+        try:
+            from app.qdrant_service import delete_bookmark_vector
+
+            delete_bookmark_vector(bookmark_id)
+        except Exception:
+            # Qdrant cleanup failure should not prevent successful DB deletion
+            pass
+
+    return deleted

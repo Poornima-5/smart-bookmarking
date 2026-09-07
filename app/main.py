@@ -4,7 +4,7 @@ from uuid import UUID
 import os
 import uuid
 
-from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, status
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, field_validator
 
@@ -16,6 +16,13 @@ from app.bookmarks_service import (
     delete_bookmark,
     get_bookmark,
     list_bookmarks,
+    update_bookmark_metadata,
+)
+from app.embedding import get_embedding
+from app.qdrant_service import (
+    get_qdrant_client,
+    search_bookmark_vectors,
+    upsert_bookmark_vector,
 )
 
 app = FastAPI()
@@ -34,6 +41,71 @@ def _embeddings_enabled() -> bool:
     Hugging Face API is not available.
     """
     return os.getenv("EMBEDDINGS_ENABLED", "false").lower() == "true"
+
+
+def process_bookmark_task(
+    bookmark_id: str,
+    user_id: str,
+    url: str,
+    title: str,
+    description: str,
+) -> None:
+    """Asynchronous background task to extract metadata, embed, index, and complete bookmark."""
+    try:
+        update_bookmark_metadata(
+            user_id=user_id,
+            bookmark_id=bookmark_id,
+            status="processing",
+        )
+
+        metadata = generate_metadata(
+            title=title,
+            description=description,
+            url=url,
+        )
+        summary = metadata.get("summary", "")
+        tags = metadata.get("tags", [])
+
+        searchable_text = f"""
+Title: {title}
+Description: {description}
+Summary: {summary}
+Tags: {", ".join(tags)}
+""".strip()
+
+        vector = get_embedding(searchable_text)
+
+        upsert_bookmark_vector(
+            bookmark_id=bookmark_id,
+            user_id=user_id,
+            vector=vector,
+            payload={
+                "bookmark_id": bookmark_id,
+                "user_id": user_id,
+                "url": url,
+                "title": title,
+                "summary": summary,
+                "tags": tags,
+            },
+        )
+
+        update_bookmark_metadata(
+            user_id=user_id,
+            bookmark_id=bookmark_id,
+            status="completed",
+            summary=summary,
+            tags=tags,
+        )
+    except Exception as exc:
+        try:
+            update_bookmark_metadata(
+                user_id=user_id,
+                bookmark_id=bookmark_id,
+                status="failed",
+                error_message=str(exc),
+            )
+        except Exception:
+            pass
 
 
 @app.get("/config")
@@ -58,6 +130,23 @@ class Bookmark(BaseModel):
 
 class SearchQuery(BaseModel):
     query: str
+
+    @field_validator("query")
+    @classmethod
+    def _not_blank(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("must not be blank")
+        return value
+
+
+class SearchResultItem(BaseModel):
+    bookmark_id: UUID
+    title: str
+    url: str
+    summary: str | None = None
+    tags: list[str] | None = None
+    score: float
 
 
 class BookmarkCreate(BaseModel):
@@ -99,10 +188,12 @@ class BookmarkRecord(BaseModel):
     response_model=BookmarkRecord,
 )
 def create_bookmark_endpoint(
-    bookmark: BookmarkCreate, user_id: str = Depends(get_current_user)
+    bookmark: BookmarkCreate,
+    background_tasks: BackgroundTasks,
+    user_id: str = Depends(get_current_user),
 ):
     try:
-        return create_bookmark(
+        record = create_bookmark(
             user_id=user_id,
             url=bookmark.url,
             title=bookmark.title,
@@ -114,10 +205,36 @@ def create_bookmark_endpoint(
             detail="Bookmark already exists for this user",
         )
 
+    background_tasks.add_task(
+        process_bookmark_task,
+        bookmark_id=str(record["id"]),
+        user_id=user_id,
+        url=record["url"],
+        title=record["title"],
+        description=record.get("description") or "",
+    )
+
+    return record
+
 
 @app.get("/bookmarks", response_model=list[BookmarkRecord])
 def list_bookmarks_endpoint(user_id: str = Depends(get_current_user)):
     return list_bookmarks(user_id)
+
+
+# Registered before /bookmarks/{bookmark_id} so "search" is not treated as a bookmark UUID.
+@app.post("/bookmarks/search", response_model=list[SearchResultItem])
+def search_bookmarks_endpoint(
+    search_query: SearchQuery,
+    user_id: str = Depends(get_current_user),
+):
+    query_text = search_query.query.strip()
+    query_vector = get_embedding(query_text)
+    return search_bookmark_vectors(
+        user_id=user_id,
+        query_vector=query_vector,
+        limit=10,
+    )
 
 
 @app.get("/bookmarks/{bookmark_id}", response_model=BookmarkRecord)
@@ -154,9 +271,9 @@ def add_bookmark(bookmark: Bookmark):
             ),
         )
 
-    from app.embedding import get_embedding
-    from app.qdrant_service import client
     from qdrant_client.models import PointStruct
+
+    client = get_qdrant_client()
 
     # 1. Generate AI metadata
     metadata = generate_metadata(
@@ -212,8 +329,7 @@ def search(query: SearchQuery):
             detail="Semantic search is temporarily unavailable in this deployment.",
         )
 
-    from app.embedding import get_embedding
-    from app.qdrant_service import client
+    client = get_qdrant_client()
 
     query_vector = get_embedding(query.query)
 

@@ -108,6 +108,40 @@
       </section>
 
       <section class="panel bookmarks-panel">
+        <section class="search-section">
+          <h2>Search bookmarks</h2>
+          <p class="panel-subtext">Find saved links using semantic meaning rather than exact keywords.</p>
+
+          <form id="search-form">
+            <div class="search-bar">
+              <input
+                type="text"
+                id="search-input"
+                placeholder="e.g. articles on fine-tuning LLMs"
+                autocomplete="off"
+              />
+              <div class="search-actions">
+                <button type="submit" id="search-btn" class="btn btn-primary btn-sm">
+                  Search
+                </button>
+                <button type="button" id="clear-search-btn" class="btn btn-ghost btn-sm">
+                  Clear
+                </button>
+              </div>
+            </div>
+          </form>
+
+          <div id="search-results-section" class="search-results-section hidden">
+            <div class="panel-heading-row">
+              <h3>Search results</h3>
+              <span id="search-count" class="count-pill hidden"></span>
+            </div>
+            <div id="search-results-list" aria-live="polite"></div>
+          </div>
+        </section>
+
+        <hr class="section-divider" />
+
         <div class="panel-heading-row">
           <h2>Your bookmarks</h2>
           <span id="bookmark-count" class="count-pill hidden"></span>

@@ -92,7 +92,9 @@ def test_create_bookmark_success_returns_202_with_pending_status():
     row = make_bookmark_row()
     with mock_authenticated_user(), patch(
         "app.main.create_bookmark", return_value=row
-    ) as mock_create:
+    ) as mock_create, patch(
+        "app.main.process_bookmark_task"
+    ) as mock_task:
         response = client.post(
             "/bookmarks",
             json={"url": "https://example.com/article", "title": "Example Article"},
@@ -105,6 +107,13 @@ def test_create_bookmark_success_returns_202_with_pending_status():
     assert body["user_id"] == USER_ID
     assert body["status"] == "pending"
     mock_create.assert_called_once_with(
+        user_id=USER_ID,
+        url="https://example.com/article",
+        title="Example Article",
+        description="",
+    )
+    mock_task.assert_called_once_with(
+        bookmark_id=row["id"],
         user_id=USER_ID,
         url="https://example.com/article",
         title="Example Article",
@@ -156,7 +165,9 @@ def test_create_bookmark_same_url_allowed_for_different_user():
     row = make_bookmark_row(user_id=OTHER_USER_ID)
     with mock_authenticated_user(user_id=OTHER_USER_ID), patch(
         "app.main.create_bookmark", return_value=row
-    ) as mock_create:
+    ) as mock_create, patch(
+        "app.main.process_bookmark_task"
+    ) as mock_task:
         response = client.post(
             "/bookmarks",
             json={"url": "https://example.com/article", "title": "Example Article"},
@@ -165,6 +176,13 @@ def test_create_bookmark_same_url_allowed_for_different_user():
 
     assert response.status_code == 202
     mock_create.assert_called_once_with(
+        user_id=OTHER_USER_ID,
+        url="https://example.com/article",
+        title="Example Article",
+        description="",
+    )
+    mock_task.assert_called_once_with(
+        bookmark_id=row["id"],
         user_id=OTHER_USER_ID,
         url="https://example.com/article",
         title="Example Article",
