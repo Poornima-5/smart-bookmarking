@@ -9,7 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, field_validator
 
 from app.ai_service import generate_metadata
-from app.auth import get_current_user
+from app.auth import get_current_user, get_current_user_data
 from app.bookmarks_service import (
     DuplicateBookmarkError,
     create_bookmark,
@@ -18,12 +18,14 @@ from app.bookmarks_service import (
     list_bookmarks,
     update_bookmark_metadata,
 )
+from app.profiles_service import get_or_create_profile, update_profile
 from app.embedding import get_embedding
 from app.qdrant_service import (
     get_qdrant_client,
     search_bookmark_vectors,
     upsert_bookmark_vector,
 )
+from app.url_utils import fetch_page_title
 
 app = FastAPI()
 
@@ -120,6 +122,60 @@ def get_public_config():
 @app.get("/me")
 def get_me(user_id: str = Depends(get_current_user)):
     return {"user_id": user_id}
+
+
+class ProfileUpdate(BaseModel):
+    display_name: str
+
+    @field_validator("display_name")
+    @classmethod
+    def _validate_display_name(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("Display name must not be blank")
+        if len(value) > 50:
+            raise ValueError("Display name must not exceed 50 characters")
+        return value
+
+
+class ProfileRecord(BaseModel):
+    id: UUID
+    email: str | None = None
+    display_name: str | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+@app.get("/profile", response_model=ProfileRecord)
+def get_profile_endpoint(user: dict = Depends(get_current_user_data)):
+    profile = get_or_create_profile(user_id=user["id"], email=user.get("email"))
+    return {
+        "id": profile["id"],
+        "email": user.get("email"),
+        "display_name": profile.get("display_name"),
+        "created_at": profile["created_at"],
+        "updated_at": profile["updated_at"],
+    }
+
+
+@app.put("/profile", response_model=ProfileRecord)
+def update_profile_endpoint(
+    profile_data: ProfileUpdate,
+    user: dict = Depends(get_current_user_data),
+):
+    profile = update_profile(user_id=user["id"], display_name=profile_data.display_name)
+    if profile is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Profile not found",
+        )
+    return {
+        "id": profile["id"],
+        "email": user.get("email"),
+        "display_name": profile.get("display_name"),
+        "created_at": profile["created_at"],
+        "updated_at": profile["updated_at"],
+    }
 
 
 class Bookmark(BaseModel):
@@ -222,7 +278,17 @@ def list_bookmarks_endpoint(user_id: str = Depends(get_current_user)):
     return list_bookmarks(user_id)
 
 
-# Registered before /bookmarks/{bookmark_id} so "search" is not treated as a bookmark UUID.
+# Registered before /bookmarks/{bookmark_id} so "suggest-title" and "search" are not treated as bookmark UUIDs.
+@app.get("/bookmarks/suggest-title")
+def suggest_title_endpoint(
+    url: str = "",
+    user_id: str = Depends(get_current_user),
+):
+    """Obtains page title suggestion from the given URL without creating a bookmark."""
+    title = fetch_page_title(url)
+    return {"title": title}
+
+
 @app.post("/bookmarks/search", response_model=list[SearchResultItem])
 def search_bookmarks_endpoint(
     search_query: SearchQuery,

@@ -1,156 +1,495 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Smart Bookmarks</title>
-  <meta name="description" content="A focused home for the technical articles, docs, and tools you want to find again." />
-  <link rel="stylesheet" href="/styles.css" />
+  <title>Smart Bookmarks — Developer Knowledge Base</title>
+  <meta name="description" content="A focused home for technical articles, docs, and tools you want to find again using AI and semantic search." />
+  <link rel="stylesheet" href="/styles.css?v=1.1" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 </head>
 <body>
+  <!-- App Shell Topbar -->
   <header class="topbar">
     <div class="brand">
       <span class="brand-mark" aria-hidden="true">
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1z" />
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
         </svg>
       </span>
-      <span class="brand-name">Smart Bookmarks</span>
+      <div class="brand-text">
+        <span class="brand-name">Smart Bookmarks</span>
+      </div>
+      <span class="brand-badge">Knowledge Base</span>
     </div>
-    <div id="user-bar" class="user-bar hidden">
-      <span id="user-email" class="user-email"></span>
-      <button id="logout-btn" type="button" class="btn btn-ghost btn-sm">Log out</button>
+
+    <div class="header-controls">
+      <!-- Theme Toggle -->
+      <button type="button" id="theme-toggle-btn" class="theme-toggle-btn" aria-label="Toggle color theme" title="Toggle theme">
+        <svg id="theme-icon-sun" class="hidden" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="5" />
+          <line x1="12" y1="1" x2="12" y2="3" />
+          <line x1="12" y1="21" x2="12" y2="23" />
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+          <line x1="1" y1="12" x2="3" y2="12" />
+          <line x1="21" y1="12" x2="23" y2="12" />
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+        </svg>
+        <svg id="theme-icon-moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+        </svg>
+      </button>
+
+      <!-- Authenticated User Controls -->
+      <div id="user-bar" class="user-bar hidden">
+        <button type="button" id="account-btn" class="user-profile-btn" aria-label="Open account settings" title="Account settings">
+          <span id="user-avatar" class="user-avatar" aria-hidden="true">U</span>
+          <span id="user-display-name" class="user-display-name">User</span>
+          <span id="user-email" class="user-email"></span>
+          <svg class="profile-chevron" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </button>
+        <button id="logout-btn" type="button" class="btn btn-ghost btn-sm">Log out</button>
+      </div>
     </div>
   </header>
 
   <main class="page">
+    <!-- Global Status Banner -->
     <div id="banner" class="banner hidden" role="status" aria-live="polite"></div>
 
-    <section id="auth-section" class="auth-card">
-      <div class="auth-card-header">
-        <h1 id="auth-heading">Welcome back</h1>
-        <p id="auth-subtext" class="auth-subtext">
-          Log in to access your saved technical resources.
+    <!-- Auth View (Split Screen Hero + Card) -->
+    <section id="auth-section" class="auth-wrapper">
+      <div class="auth-hero">
+        <span class="auth-hero-badge">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5">
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+          AI-Powered Knowledge Workspace
+        </span>
+        <h1 class="auth-hero-title">Save what matters.<br />Find it when you need it.</h1>
+        <p class="auth-hero-desc">
+          Intelligent bookmark management with automated summaries, smart tagging, and vector-powered semantic search.
+        </p>
+
+        <ul class="auth-features-list">
+          <li class="auth-feature-item">
+            <svg class="auth-feature-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+            <span><strong>Semantic search:</strong> Find concepts without remembering exact keywords.</span>
+          </li>
+          <li class="auth-feature-item">
+            <svg class="auth-feature-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+            <span><strong>AI-generated metadata:</strong> Automatic TL;DR summaries and domain tags.</span>
+          </li>
+          <li class="auth-feature-item">
+            <svg class="auth-feature-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+            <span><strong>Private & secure:</strong> Multi-tenant isolation backed by Supabase & Qdrant.</span>
+          </li>
+        </ul>
+      </div>
+
+      <div class="auth-card">
+        <div class="auth-card-header">
+          <h2 id="auth-heading">Welcome back</h2>
+          <p id="auth-subtext" class="auth-subtext">
+            Log in to access your saved technical resources.
+          </p>
+        </div>
+
+        <form id="auth-form">
+          <div class="field">
+            <label for="auth-email">Email address</label>
+            <input
+              type="email"
+              id="auth-email"
+              placeholder="you@company.com"
+              required
+              autocomplete="email"
+            />
+          </div>
+          <div class="field">
+            <label for="auth-password">Password</label>
+            <div class="input-wrapper">
+              <input
+                type="password"
+                id="auth-password"
+                placeholder="At least 6 characters"
+                required
+                autocomplete="current-password"
+                minlength="6"
+              />
+              <button type="button" class="password-toggle-btn" data-target="auth-password" aria-label="Toggle password visibility">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+              </button>
+            </div>
+          </div>
+          <div class="field hidden" id="confirm-password-field">
+            <label for="auth-confirm-password">Confirm password</label>
+            <div class="input-wrapper">
+              <input
+                type="password"
+                id="auth-confirm-password"
+                placeholder="Re-enter your password"
+                autocomplete="new-password"
+                minlength="6"
+              />
+              <button type="button" class="password-toggle-btn" data-target="auth-confirm-password" aria-label="Toggle password confirmation visibility">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+              </button>
+            </div>
+          </div>
+          <button type="submit" id="auth-submit-btn" class="btn btn-primary btn-block">
+            Log in
+          </button>
+        </form>
+
+        <div id="resend-confirmation-box" class="resend-box hidden">
+          <p id="resend-message" class="resend-message">
+            Your email hasn't been confirmed yet. Check your inbox or click below to resend the confirmation link.
+          </p>
+          <button type="button" id="resend-btn" class="btn btn-ghost btn-block btn-sm">
+            Resend confirmation email
+          </button>
+        </div>
+
+        <p class="auth-toggle">
+          <span id="auth-toggle-text">Don't have an account?</span>
+          <button type="button" id="auth-toggle-btn" class="link-btn">Sign up</button>
+        </p>
+      </div>
+    </section>
+
+    <!-- Main Workspace Dashboard View -->
+    <section id="app-section" class="hidden">
+      <!-- Dashboard Top Header -->
+      <div class="dashboard-hero">
+        <div class="eyebrow">
+          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5">
+            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+          </svg>
+          Your Knowledge Base
+        </div>
+        <h1 class="dashboard-title">Save what matters. Find it when you need it.</h1>
+        <p class="dashboard-desc">
+          Organize technical documentation, research papers, and developer tools with automatic AI analysis and semantic retrieval.
         </p>
       </div>
 
-      <form id="auth-form">
-        <div class="field">
-          <label for="auth-email">Email</label>
-          <input
-            type="email"
-            id="auth-email"
-            placeholder="you@company.com"
-            required
-            autocomplete="email"
-          />
-        </div>
-        <div class="field">
-          <label for="auth-password">Password</label>
-          <input
-            type="password"
-            id="auth-password"
-            placeholder="At least 6 characters"
-            required
-            autocomplete="current-password"
-            minlength="6"
-          />
-        </div>
-        <button type="submit" id="auth-submit-btn" class="btn btn-primary btn-block">
-          Log in
-        </button>
-      </form>
-
-      <p class="auth-toggle">
-        <span id="auth-toggle-text">Don't have an account?</span>
-        <button type="button" id="auth-toggle-btn" class="link-btn">Sign up</button>
-      </p>
-    </section>
-
-    <section id="app-section" class="app hidden">
-      <section class="panel add-bookmark-panel">
-        <h2>Add a bookmark</h2>
-        <p class="panel-subtext">Save a link and keep it organized in one place.</p>
-
-        <form id="bookmark-form">
-          <div class="field">
-            <label for="bookmark-url">URL</label>
-            <input
-              type="url"
-              id="bookmark-url"
-              placeholder="https://example.com/article"
-              required
-            />
+      <!-- Two-Column Workspace Layout -->
+      <div class="app">
+        <!-- Left Column: Add Bookmark Creation Panel (~35%) -->
+        <section class="panel add-bookmark-panel">
+          <div class="panel-header">
+            <h2 class="panel-title">Add a bookmark</h2>
+            <p class="panel-subtext">Save a technical resource to your personal library.</p>
           </div>
-          <div class="field">
-            <label for="bookmark-title">Title</label>
-            <input
-              type="text"
-              id="bookmark-title"
-              placeholder="A short, memorable title"
-              required
-            />
-          </div>
-          <div class="field">
-            <label for="bookmark-description">
-              Description <span class="optional">(optional)</span>
-            </label>
-            <textarea
-              id="bookmark-description"
-              placeholder="Add any notes or context"
-            ></textarea>
-          </div>
-          <button type="submit" id="save-btn" class="btn btn-primary btn-block">
-            Save bookmark
-          </button>
-        </form>
-      </section>
 
-      <section class="panel bookmarks-panel">
-        <section class="search-section">
-          <h2>Search bookmarks</h2>
-          <p class="panel-subtext">Find saved links using semantic meaning rather than exact keywords.</p>
-
-          <form id="search-form">
-            <div class="search-bar">
+          <form id="bookmark-form">
+            <div class="field">
+              <label for="bookmark-url">URL</label>
+              <input
+                type="url"
+                id="bookmark-url"
+                placeholder="https://example.com/article"
+                required
+              />
+              <span class="field-help">Articles, docs, repositories, or blogs.</span>
+            </div>
+            <div class="field" id="title-field-group">
+              <div class="field-label-row">
+                <label for="bookmark-title">Title</label>
+                <span id="title-suggest-spinner" class="title-suggest-spinner hidden">
+                  <span class="spinner" aria-hidden="true"></span> Fetching title...
+                </span>
+              </div>
               <input
                 type="text"
-                id="search-input"
-                placeholder="e.g. articles on fine-tuning LLMs"
-                autocomplete="off"
+                id="bookmark-title"
+                placeholder="e.g. Transformers from Scratch"
+                required
               />
-              <div class="search-actions">
-                <button type="submit" id="search-btn" class="btn btn-primary btn-sm">
-                  Search
-                </button>
-                <button type="button" id="clear-search-btn" class="btn btn-ghost btn-sm">
-                  Clear
+              <div id="title-suggestion-box" class="title-suggestion-box hidden">
+                <span class="suggestion-hint">Suggestion:</span>
+                <button type="button" id="apply-title-btn" class="suggestion-chip" title="Click to accept suggested title">
+                  <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                  </svg>
+                  <span id="suggestion-text" class="suggestion-text"></span>
+                  <span class="suggestion-badge">Use title</span>
                 </button>
               </div>
             </div>
-          </form>
-
-          <div id="search-results-section" class="search-results-section hidden">
-            <div class="panel-heading-row">
-              <h3>Search results</h3>
-              <span id="search-count" class="count-pill hidden"></span>
+            <div class="field">
+              <label for="bookmark-description">
+                Description <span class="optional">(optional)</span>
+              </label>
+              <textarea
+                id="bookmark-description"
+                placeholder="Key takeaways, context, or why you saved this..."
+              ></textarea>
             </div>
-            <div id="search-results-list" aria-live="polite"></div>
-          </div>
+            <button type="submit" id="save-btn" class="btn btn-primary btn-block">
+              Save bookmark
+            </button>
+          </form>
         </section>
 
-        <hr class="section-divider" />
+        <!-- Right Column: Dominant Search Experience & Knowledge Cards (~65%) -->
+        <section class="panel bookmarks-panel">
+          <!-- Dominant Semantic Search Box -->
+          <div class="search-container-box">
+            <div class="search-header">
+              <div class="search-title-row">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" color="var(--color-primary)">
+                  <circle cx="11" cy="11" r="8" />
+                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+                <h2>Search your knowledge</h2>
+              </div>
+              <p class="search-desc">Describe what you're looking for. Search understands concepts and meaning, not just exact keywords.</p>
+            </div>
 
-        <div class="panel-heading-row">
-          <h2>Your bookmarks</h2>
-          <span id="bookmark-count" class="count-pill hidden"></span>
-        </div>
-        <div id="bookmarks-list" aria-live="polite"></div>
-      </section>
+            <form id="search-form">
+              <div class="search-bar">
+                <div class="search-input-wrapper">
+                  <span class="search-icon-prefix" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                      <circle cx="11" cy="11" r="8" />
+                      <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    </svg>
+                  </span>
+                  <input
+                    type="text"
+                    id="search-input"
+                    placeholder="e.g. articles about transformer attention mechanisms"
+                    autocomplete="off"
+                  />
+                  <span class="search-kbd-hint" aria-hidden="true">Ctrl K</span>
+                </div>
+                <div class="search-actions">
+                  <button type="submit" id="search-btn" class="btn btn-primary btn-sm">
+                    Search
+                  </button>
+                  <button type="button" id="clear-search-btn" class="btn btn-ghost btn-sm">
+                    Clear
+                  </button>
+                </div>
+              </div>
+            </form>
+
+            <!-- Search Results -->
+            <div id="search-results-section" class="search-results-section hidden">
+              <div class="results-header-row">
+                <h3>
+                  <span>Semantic matches</span>
+                </h3>
+                <span id="search-count" class="count-pill hidden"></span>
+              </div>
+              <div id="search-results-list" aria-live="polite"></div>
+            </div>
+          </div>
+
+          <!-- Compact Dashboard Summary Metrics -->
+          <div class="stats-strip" id="dashboard-stats-strip">
+            <div class="stat-card">
+              <span class="stat-value" id="stat-total-count">0</span>
+              <span class="stat-label">Total Bookmarks</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-value" id="stat-processed-count">0</span>
+              <span class="stat-label">Processed</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-value" id="stat-ready-count">0</span>
+              <span class="stat-label">In Queue</span>
+            </div>
+          </div>
+
+          <!-- Bookmarks Library (Collapsible) -->
+          <div class="library-header-wrapper">
+            <button type="button" id="library-toggle-btn" class="library-toggle-btn" aria-expanded="true" aria-controls="bookmarks-list" title="Click to collapse or expand library">
+              <div class="library-title-group">
+                <h2 class="library-title">Your library</h2>
+                <span id="bookmark-count" class="library-count-text hidden"></span>
+              </div>
+              <span class="library-collapse-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
+              </span>
+            </button>
+          </div>
+
+          <!-- Library Navigation Toolbar: List vs Groups View -->
+          <div class="library-toolbar" id="library-toolbar">
+            <div class="view-mode-tabs" role="tablist" aria-label="Library layout mode">
+              <button type="button" id="view-mode-all" class="view-mode-tab active" role="tab" aria-selected="true">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="8" y1="6" x2="21" y2="6" />
+                  <line x1="8" y1="12" x2="21" y2="12" />
+                  <line x1="8" y1="18" x2="21" y2="18" />
+                  <line x1="3" y1="6" x2="3.01" y2="6" />
+                  <line x1="3" y1="12" x2="3.01" y2="12" />
+                  <line x1="3" y1="18" x2="3.01" y2="18" />
+                </svg>
+                <span>All Resources</span>
+              </button>
+              <button type="button" id="view-mode-groups" class="view-mode-tab" role="tab" aria-selected="false">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="3" width="7" height="7" />
+                  <rect x="14" y="3" width="7" height="7" />
+                  <rect x="14" y="14" width="7" height="7" />
+                  <rect x="3" y="14" width="7" height="7" />
+                </svg>
+                <span>Organize in Groups</span>
+              </button>
+            </div>
+
+            <div id="group-criteria-bar" class="group-criteria-bar hidden">
+              <span class="group-criteria-label">Group by:</span>
+              <div class="group-criteria-pills">
+                <button type="button" class="group-pill active" data-criterion="tags">Topics (Tags)</button>
+                <button type="button" class="group-pill" data-criterion="domain">Domain</button>
+                <button type="button" class="group-pill" data-criterion="status">Status</button>
+              </div>
+            </div>
+          </div>
+
+          <div id="bookmarks-list" class="bookmarks-list-container" aria-live="polite"></div>
+        </section>
+      </div>
     </section>
   </main>
 
-  <script src="/app.js"></script>
+  <!-- Slide-Over Account Settings Drawer -->
+  <div id="profile-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="profile-heading">
+    <div class="drawer-panel">
+      <div class="drawer-header">
+        <h2 id="profile-heading">Account settings</h2>
+        <button type="button" id="close-profile-btn" class="icon-btn" aria-label="Close settings drawer">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+      </div>
+
+      <div class="drawer-body">
+        <div id="profile-banner" class="banner hidden" role="status" aria-live="polite"></div>
+
+        <!-- User Identity Preview -->
+        <div class="drawer-user-card">
+          <div class="drawer-avatar" id="drawer-avatar-badge">U</div>
+          <div class="drawer-user-info">
+            <span class="drawer-user-name" id="drawer-user-name">User</span>
+            <span class="drawer-user-email" id="drawer-user-email">user@example.com</span>
+          </div>
+        </div>
+
+        <!-- Section: Profile -->
+        <div class="drawer-section">
+          <h3 class="drawer-section-title">Profile Information</h3>
+          <form id="profile-form">
+            <div class="field">
+              <label for="profile-email">Email address</label>
+              <input type="email" id="profile-email" disabled readonly class="input-disabled" />
+              <span class="field-help">Managed by your authentication provider (read-only).</span>
+            </div>
+
+            <div class="field">
+              <label for="profile-display-name">Display name</label>
+              <input
+                type="text"
+                id="profile-display-name"
+                placeholder="How you'd like to be called"
+                maxlength="50"
+                required
+              />
+            </div>
+            <button type="submit" id="save-profile-btn" class="btn btn-primary btn-sm">
+              Save display name
+            </button>
+          </form>
+        </div>
+
+        <hr class="drawer-divider" />
+
+        <!-- Section: Security -->
+        <div class="drawer-section">
+          <h3 class="drawer-section-title">Security & Password</h3>
+          <form id="password-form">
+            <div class="field">
+              <label for="new-password">New password</label>
+              <div class="input-wrapper">
+                <input
+                  type="password"
+                  id="new-password"
+                  placeholder="At least 6 characters"
+                  minlength="6"
+                  autocomplete="new-password"
+                  required
+                />
+                <button type="button" class="password-toggle-btn" data-target="new-password" aria-label="Toggle new password visibility">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8z" />
+                    <circle cx="12" cy="12" r="3" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div class="field">
+              <label for="confirm-new-password">Confirm new password</label>
+              <div class="input-wrapper">
+                <input
+                  type="password"
+                  id="confirm-new-password"
+                  placeholder="Re-enter new password"
+                  minlength="6"
+                  autocomplete="new-password"
+                  required
+                />
+                <button type="button" class="password-toggle-btn" data-target="confirm-new-password" aria-label="Toggle confirm password visibility">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8z" />
+                    <circle cx="12" cy="12" r="3" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <button type="submit" id="change-password-btn" class="btn btn-ghost btn-sm">
+              Update password
+            </button>
+          </form>
+        </div>
+
+        <hr class="drawer-divider" />
+
+        <!-- Section: Session / Sign out -->
+        <div class="drawer-section">
+          <h3 class="drawer-section-title">Session</h3>
+          <button type="button" id="drawer-logout-btn" class="btn btn-danger-outline btn-block btn-sm">
+            Log out of all sessions
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/app.js?v=1.1"></script>
 </body>
 </html>

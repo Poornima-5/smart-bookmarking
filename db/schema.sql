@@ -63,3 +63,41 @@ create policy "bookmarks_update_own" on bookmarks
 
 create policy "bookmarks_delete_own" on bookmarks
     for delete using (user_id = auth.uid());
+
+-- Profiles table: Stores user application profile data separated from auth.users.
+create table if not exists profiles (
+    id uuid primary key references auth.users(id) on delete cascade,
+    display_name text,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now()
+);
+
+-- Keep profiles.updated_at accurate.
+create or replace function set_profiles_updated_at()
+returns trigger as $$
+begin
+    new.updated_at = now();
+    return new;
+end;
+$$ language plpgsql;
+
+drop trigger if exists profiles_set_updated_at on profiles;
+
+create trigger profiles_set_updated_at
+    before update on profiles
+    for each row
+    execute function set_profiles_updated_at();
+
+alter table profiles enable row level security;
+
+create policy "profiles_select_own" on profiles
+    for select using (id = auth.uid());
+
+create policy "profiles_insert_own" on profiles
+    for insert with check (id = auth.uid());
+
+create policy "profiles_update_own" on profiles
+    for update using (id = auth.uid());
+
+create policy "profiles_delete_own" on profiles
+    for delete using (id = auth.uid());
