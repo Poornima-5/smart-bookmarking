@@ -6,10 +6,10 @@ from app.supabase_service import public_client
 bearer_scheme = HTTPBearer(auto_error=False)
 
 
-def get_current_user(
+def get_current_user_data(
     credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
-) -> str:
-    """Verifies a Supabase access token and returns the authenticated user's id."""
+) -> dict:
+    """Verifies a Supabase access token and returns dict with authenticated user's id and email."""
     if credentials is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -30,4 +30,15 @@ def get_current_user(
             detail="Invalid or expired token",
         )
 
-    return response.user.id
+    return {
+        "id": response.user.id,
+        "email": getattr(response.user, "email", None),
+    }
+
+
+def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
+) -> str:
+    """Verifies a Supabase access token and returns the authenticated user's id."""
+    user_data = get_current_user_data(credentials)
+    return user_data["id"]

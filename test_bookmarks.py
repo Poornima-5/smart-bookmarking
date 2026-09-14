@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
@@ -250,3 +250,64 @@ def test_delete_bookmark_returns_404_when_not_owned():
     ):
         response = client.delete(f"/bookmarks/{bookmark_id}", headers=auth_headers())
     assert response.status_code == 404
+
+
+# ---- suggest title ----
+
+
+def test_suggest_title_without_token_returns_401():
+    response = client.get("/bookmarks/suggest-title?url=https://example.com")
+    assert response.status_code == 401
+
+
+def test_suggest_title_returns_extracted_title():
+    with mock_authenticated_user(), patch(
+        "app.main.fetch_page_title", return_value="Example Page Title"
+    ) as mock_fetch:
+        response = client.get(
+            "/bookmarks/suggest-title?url=https://example.com/page",
+            headers=auth_headers(),
+        )
+    assert response.status_code == 200
+    assert response.json() == {"title": "Example Page Title"}
+    mock_fetch.assert_called_once_with("https://example.com/page")
+
+
+def test_suggest_title_graceful_failure_returns_null():
+    with mock_authenticated_user(), patch(
+        "app.main.fetch_page_title", return_value=None
+    ):
+        response = client.get(
+            "/bookmarks/suggest-title?url=https://invalid-non-existing.site",
+            headers=auth_headers(),
+        )
+    assert response.status_code == 200
+    assert response.json() == {"title": None}
+
+
+def test_fetch_page_title_html_title_tag():
+    from app.url_utils import fetch_page_title
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.headers = {"content-type": "text/html"}
+    mock_resp.text = "<html><head><title>  My &amp; Awesome &quot;Article&quot;  \n</title></head></html>"
+    with patch("httpx.Client.get", return_value=mock_resp):
+        title = fetch_page_title("https://example.com/test")
+        assert title == 'My & Awesome "Article"'
+
+
+def test_fetch_page_title_og_title():
+    from app.url_utils import fetch_page_title
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.headers = {"content-type": "text/html"}
+    mock_resp.text = '<html><head><meta property="og:title" content="OpenGraph Title" /></head></html>'
+    with patch("httpx.Client.get", return_value=mock_resp):
+        title = fetch_page_title("https://example.com/og")
+        assert title == "OpenGraph Title"
+
+
+def test_fetch_page_title_invalid_url():
+    from app.url_utils import fetch_page_title
+    assert fetch_page_title("not-a-valid-url") is None
+    assert fetch_page_title("") is None
